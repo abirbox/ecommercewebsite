@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, createContext, useContext, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams, Navigate } from 'react-router-dom';
-import { ShoppingCart, Search, User, Menu, X, Heart, Star, Package, Truck, CreditCard, ChevronRight, Filter, Plus, Minus, Trash2, Eye, Edit, Check, XCircle, Store, BarChart3, Settings, Users, ShoppingBag, LogOut, Bell, Home, Tag, DollarSign, TrendingUp, AlertCircle, MapPin, Phone, Mail, Globe } from 'lucide-react';
+import { ShoppingCart, Search, User, Menu, X, Heart, Star, Package, Truck, CreditCard, ChevronRight, Filter, Plus, Minus, Trash2, Eye, Edit, Check, XCircle, Store, BarChart3, Settings, Users, ShoppingBag, LogOut, Bell, Home, Tag, DollarSign, TrendingUp, AlertCircle, MapPin, Phone, Mail, Globe, RotateCcw, FileText, Download, Calendar } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { store, getSession, setSession, clearSession } from './store';
 import type { User as UserType, Product, Category, Order, Address, CartItem, Review, PlatformSettings } from './types';
 
@@ -32,7 +33,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserType | null>(store.getCurrentUser());
   const [, setTick] = useState(0);
 
-  useEffect(() => store.subscribe(() => { setUser(store.getCurrentUser()); setTick(t => t + 1); }), []);
+  useEffect(() => { const unsub = store.subscribe(() => { setUser(store.getCurrentUser()); setTick(t => t + 1); }); return () => { unsub(); }; }, []);
 
   const login = useCallback((email: string, password: string) => {
     const u = store.login(email, password);
@@ -1086,7 +1087,7 @@ function AdminLoginPage() {
             <p className="text-gray-500 text-sm">Restricted access</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="email" value={email} onChange={e => setEmail(e.target.value })} required placeholder="Admin email" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500" />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Admin email" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500" />
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Password" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500" />
             <button type="submit" className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800">Access Panel</button>
           </form>
@@ -1122,6 +1123,7 @@ function CustomerLayout({ children }: { children: ReactNode }) {
                 { to: '/account/wishlist', label: 'Wishlist', icon: Heart },
                 { to: '/account/addresses', label: 'Addresses', icon: MapPin },
                 { to: '/account/reviews', label: 'Reviews', icon: Star },
+                { to: '/account/returns', label: 'Returns', icon: RotateCcw },
               ].map(item => (
                 <Link key={item.to} to={item.to} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-600">
                   <item.icon size={16} /> {item.label}
@@ -1375,6 +1377,7 @@ function CustomerAddresses() {
 function SellerLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [mobileMenu, setMobileMenu] = useState(false);
   if (!user || user.role !== 'seller') return <Navigate to="/seller/login" />;
   const profile = store.getSellerProfile(user.id);
 
@@ -1389,6 +1392,14 @@ function SellerLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  const navItems = [
+    { to: '/seller/dashboard', label: 'Overview', icon: BarChart3 },
+    { to: '/seller/products', label: 'Products', icon: Package },
+    { to: '/seller/orders', label: 'Orders', icon: ShoppingBag },
+    { to: '/seller/finance', label: 'Finance', icon: DollarSign },
+    { to: '/seller/settings', label: 'Store Settings', icon: Settings },
+  ];
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <aside className="w-64 bg-white border-r shrink-0 hidden md:block">
@@ -1397,13 +1408,7 @@ function SellerLayout({ children }: { children: ReactNode }) {
           <p className="text-xs text-gray-500">Seller Dashboard</p>
         </div>
         <nav className="p-4 space-y-1">
-          {[
-            { to: '/seller/dashboard', label: 'Overview', icon: BarChart3 },
-            { to: '/seller/products', label: 'Products', icon: Package },
-            { to: '/seller/orders', label: 'Orders', icon: ShoppingBag },
-            { to: '/seller/finance', label: 'Finance', icon: DollarSign },
-            { to: '/seller/settings', label: 'Store Settings', icon: Settings },
-          ].map(item => (
+          {navItems.map(item => (
             <Link key={item.to} to={item.to} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-600">
               <item.icon size={16} /> {item.label}
             </Link>
@@ -1413,7 +1418,28 @@ function SellerLayout({ children }: { children: ReactNode }) {
           </button>
         </nav>
       </aside>
-      <main className="flex-1 p-6 overflow-auto">{children}</main>
+      {/* Mobile header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-white border-b z-30 px-4 py-3 flex items-center justify-between">
+        <h2 className="font-bold text-sm">{profile?.storeName}</h2>
+        <button onClick={() => setMobileMenu(!mobileMenu)}>{mobileMenu ? <X size={20} /> : <Menu size={20} />}</button>
+      </div>
+      {mobileMenu && (
+        <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMobileMenu(false)}>
+          <div className="absolute right-0 top-0 bottom-0 w-64 bg-white p-4" onClick={e => e.stopPropagation()}>
+            <nav className="space-y-1 mt-12">
+              {navItems.map(item => (
+                <Link key={item.to} to={item.to} onClick={() => setMobileMenu(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-600">
+                  <item.icon size={16} /> {item.label}
+                </Link>
+              ))}
+              <button onClick={() => { logout(); navigate('/'); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 w-full">
+                <LogOut size={16} /> Logout
+              </button>
+            </nav>
+          </div>
+        </div>
+      )}
+      <main className="flex-1 p-6 overflow-auto md:mt-0 mt-14">{children}</main>
     </div>
   );
 }
@@ -1426,6 +1452,17 @@ function SellerDashboard() {
   const orders = store.getSellerOrders(user.id);
   const earnings = store.getSellerEarnings(user.id);
   const balance = store.getSellerBalance(user.id);
+  const lowStockProducts = products.filter(p => p.stock <= 10 && p.status === 'approved');
+
+  // Sales chart data
+  const salesByMonth: Record<string, number> = {};
+  orders.forEach(o => {
+    const sellerItems = o.items.filter(i => i.sellerId === user.id);
+    const sellerTotal = sellerItems.reduce((s, i) => s + i.totalPrice, 0);
+    const month = new Date(o.createdAt).toLocaleString('default', { month: 'short' });
+    salesByMonth[month] = (salesByMonth[month] || 0) + sellerTotal;
+  });
+  const salesChartData = Object.entries(salesByMonth).map(([name, sales]) => ({ name, sales: Math.round(sales) }));
 
   return (
     <div>
@@ -1448,6 +1485,22 @@ function SellerDashboard() {
           <p className="text-2xl font-bold text-indigo-600">${balance.toFixed(2)}</p>
         </div>
       </div>
+
+      {/* Sales Chart */}
+      {salesChartData.length > 0 && (
+        <div className="bg-white rounded-xl border p-6 mb-6">
+          <h2 className="font-bold mb-4">Sales Trend</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={salesChartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" fontSize={12} />
+              <YAxis fontSize={12} />
+              <Tooltip formatter={(value: number) => [`$${value}`, 'Sales']} />
+              <Line type="monotone" dataKey="sales" stroke="#4f46e5" strokeWidth={2} dot={{ fill: '#4f46e5' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border p-6">
@@ -1477,6 +1530,21 @@ function SellerDashboard() {
           )) : <p className="text-gray-500 text-sm">No products yet</p>}
         </div>
       </div>
+
+      {/* Low Stock Alert */}
+      {lowStockProducts.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mt-6">
+          <h2 className="font-bold text-amber-800 mb-3 flex items-center gap-2"><AlertCircle size={18} /> Low Stock Alert</h2>
+          <div className="space-y-2">
+            {lowStockProducts.map(p => (
+              <div key={p.id} className="flex items-center justify-between text-sm">
+                <span className="text-amber-700">{p.name}</span>
+                <span className="font-medium text-amber-900">{p.stock} left</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1773,7 +1841,20 @@ function SellerSettings() {
 function AdminLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [mobileMenu, setMobileMenu] = useState(false);
   if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) return <Navigate to="/admin/login" />;
+
+  const navItems = [
+    { to: '/admin/dashboard', label: 'Overview', icon: BarChart3 },
+    { to: '/admin/users', label: 'Users', icon: Users },
+    { to: '/admin/sellers', label: 'Sellers', icon: Store },
+    { to: '/admin/products', label: 'Products', icon: Package },
+    { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+    { to: '/admin/coupons', label: 'Coupons', icon: Tag },
+    { to: '/admin/payouts', label: 'Payouts', icon: DollarSign },
+    { to: '/admin/reports', label: 'Reports', icon: FileText },
+    { to: '/admin/settings', label: 'Settings', icon: Settings },
+  ];
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -1783,16 +1864,7 @@ function AdminLayout({ children }: { children: ReactNode }) {
           <p className="text-xs text-gray-400">ShopVerse Management</p>
         </div>
         <nav className="p-4 space-y-1">
-          {[
-            { to: '/admin/dashboard', label: 'Overview', icon: BarChart3 },
-            { to: '/admin/users', label: 'Users', icon: Users },
-            { to: '/admin/sellers', label: 'Sellers', icon: Store },
-            { to: '/admin/products', label: 'Products', icon: Package },
-            { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-            { to: '/admin/coupons', label: 'Coupons', icon: Tag },
-            { to: '/admin/payouts', label: 'Payouts', icon: DollarSign },
-            { to: '/admin/settings', label: 'Settings', icon: Settings },
-          ].map(item => (
+          {navItems.map(item => (
             <Link key={item.to} to={item.to} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-gray-800 hover:text-white">
               <item.icon size={16} /> {item.label}
             </Link>
@@ -1802,7 +1874,28 @@ function AdminLayout({ children }: { children: ReactNode }) {
           </button>
         </nav>
       </aside>
-      <main className="flex-1 p-6 overflow-auto">{children}</main>
+      {/* Mobile header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-gray-900 text-white z-30 px-4 py-3 flex items-center justify-between">
+        <h2 className="font-bold text-sm">Admin Panel</h2>
+        <button onClick={() => setMobileMenu(!mobileMenu)}>{mobileMenu ? <X size={20} /> : <Menu size={20} />}</button>
+      </div>
+      {mobileMenu && (
+        <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMobileMenu(false)}>
+          <div className="absolute right-0 top-0 bottom-0 w-64 bg-gray-900 p-4" onClick={e => e.stopPropagation()}>
+            <nav className="space-y-1 mt-12">
+              {navItems.map(item => (
+                <Link key={item.to} to={item.to} onClick={() => setMobileMenu(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-gray-800 hover:text-white">
+                  <item.icon size={16} /> {item.label}
+                </Link>
+              ))}
+              <button onClick={() => { logout(); navigate('/'); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-gray-800 w-full mt-4">
+                <LogOut size={16} /> Logout
+              </button>
+            </nav>
+          </div>
+        </div>
+      )}
+      <main className="flex-1 p-6 overflow-auto md:mt-0 mt-14">{children}</main>
     </div>
   );
 }
@@ -1810,7 +1903,32 @@ function AdminLayout({ children }: { children: ReactNode }) {
 function AdminDashboard() {
   const stats = store.getAdminStats();
   const orders = store.getOrders();
+  const products = store.getProducts();
+  const sellers = store.getSellerProfiles();
   const recentOrders = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+
+  // Generate sales chart data from orders
+  const salesByMonth: Record<string, number> = {};
+  orders.forEach(o => {
+    const month = new Date(o.createdAt).toLocaleString('default', { month: 'short', year: '2-digit' });
+    salesByMonth[month] = (salesByMonth[month] || 0) + o.total;
+  });
+  const salesChartData = Object.entries(salesByMonth).map(([name, sales]) => ({ name, sales: Math.round(sales) }));
+
+  // Order status distribution
+  const statusData = [
+    { name: 'Delivered', value: orders.filter(o => o.status === 'delivered').length, color: '#22c55e' },
+    { name: 'Shipped', value: orders.filter(o => o.status === 'shipped').length, color: '#3b82f6' },
+    { name: 'Processing', value: orders.filter(o => o.status === 'processing').length, color: '#f59e0b' },
+    { name: 'Pending', value: orders.filter(o => o.status === 'pending').length, color: '#6b7280' },
+    { name: 'Cancelled', value: orders.filter(o => o.status === 'cancelled').length, color: '#ef4444' },
+  ].filter(d => d.value > 0);
+
+  // Top sellers by revenue
+  const sellerRevenue = sellers.filter(s => s.status === 'approved').map(s => {
+    const earnings = store.getSellerEarnings(s.userId);
+    return { name: s.storeName, revenue: Math.round(earnings.grossSales) };
+  }).sort((a, b) => b.revenue - a.revenue);
 
   return (
     <div>
@@ -1849,6 +1967,60 @@ function AdminDashboard() {
           <p className="text-2xl font-bold">${stats.pendingPayouts.toFixed(2)}</p>
         </div>
       </div>
+
+      {/* Charts */}
+      <div className="grid lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-bold mb-4">Sales Overview</h2>
+          {salesChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={salesChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" fontSize={12} />
+                <YAxis fontSize={12} />
+                <Tooltip formatter={(value: number) => [`$${value}`, 'Sales']} />
+                <Bar dataKey="sales" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No sales data yet</p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-bold mb-4">Order Status Distribution</h2>
+          {statusData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie data={statusData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No order data yet</p>
+          )}
+        </div>
+      </div>
+
+      {/* Top Sellers */}
+      {sellerRevenue.length > 0 && (
+        <div className="bg-white rounded-xl border p-6 mb-8">
+          <h2 className="font-bold mb-4">Top Sellers by Revenue</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={sellerRevenue} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" fontSize={12} />
+              <YAxis type="category" dataKey="name" fontSize={12} width={100} />
+              <Tooltip formatter={(value: number) => [`$${value}`, 'Revenue']} />
+              <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border p-6">
         <h2 className="font-bold mb-4">Recent Orders</h2>
@@ -2192,6 +2364,180 @@ function AdminPayouts() {
   );
 }
 
+function AdminReports() {
+  const orders = store.getOrders();
+  const products = store.getProducts();
+  const sellers = store.getSellerProfiles();
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  const filteredOrders = orders.filter(o => {
+    if (dateFrom && new Date(o.createdAt) < new Date(dateFrom)) return false;
+    if (dateTo && new Date(o.createdAt) > new Date(dateTo + 'T23:59:59')) return false;
+    return true;
+  });
+
+  const totalRevenue = filteredOrders.filter(o => o.paymentStatus === 'paid').reduce((s, o) => s + o.total, 0);
+  const totalCommission = filteredOrders.flatMap(o => o.items).reduce((s, i) => s + i.commission, 0);
+  const totalRefunds = filteredOrders.filter(o => o.status === 'refunded').reduce((s, o) => s + o.total, 0);
+  const avgOrderValue = filteredOrders.length > 0 ? totalRevenue / filteredOrders.filter(o => o.paymentStatus === 'paid').length : 0;
+
+  // Top products
+  const productSales: Record<string, { name: string; quantity: number; revenue: number }> = {};
+  filteredOrders.forEach(o => {
+    o.items.forEach(item => {
+      if (!productSales[item.productId]) productSales[item.productId] = { name: item.productName, quantity: 0, revenue: 0 };
+      productSales[item.productId].quantity += item.quantity;
+      productSales[item.productId].revenue += item.totalPrice;
+    });
+  });
+  const topProducts = Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+
+  // Payment method breakdown
+  const paymentMethods: Record<string, number> = {};
+  filteredOrders.forEach(o => { paymentMethods[o.paymentMethod] = (paymentMethods[o.paymentMethod] || 0) + 1; });
+
+  const exportCSV = () => {
+    const headers = ['Order #', 'Customer', 'Total', 'Status', 'Payment', 'Date'];
+    const rows = filteredOrders.map(o => [
+      o.orderNumber,
+      store.getUser(o.customerId)?.fullName || '',
+      o.total.toFixed(2),
+      o.status,
+      o.paymentStatus,
+      new Date(o.createdAt).toLocaleDateString()
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `orders-report-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Reports & Analytics</h1>
+        <button onClick={exportCSV} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"><Download size={16} /> Export CSV</button>
+      </div>
+
+      {/* Date filters */}
+      <div className="bg-white rounded-xl border p-4 mb-6 flex flex-wrap gap-4 items-end">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="px-3 py-2 border rounded-lg text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="px-3 py-2 border rounded-lg text-sm" />
+        </div>
+        <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-sm text-indigo-600 hover:underline">Clear</button>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-sm text-gray-500">Total Revenue</p>
+          <p className="text-2xl font-bold text-green-600">${totalRevenue.toFixed(2)}</p>
+        </div>
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-sm text-gray-500">Commission Earned</p>
+          <p className="text-2xl font-bold">${totalCommission.toFixed(2)}</p>
+        </div>
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-sm text-gray-500">Avg Order Value</p>
+          <p className="text-2xl font-bold">${avgOrderValue.toFixed(2)}</p>
+        </div>
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-sm text-gray-500">Total Refunds</p>
+          <p className="text-2xl font-bold text-red-600">${totalRefunds.toFixed(2)}</p>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Top Products */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-bold mb-4">Top Selling Products</h2>
+          {topProducts.length > 0 ? (
+            <div className="space-y-3">
+              {topProducts.map((p, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-5">#{i + 1}</span>
+                    <span className="text-sm font-medium">{p.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold">${p.revenue.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500">{p.quantity} sold</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-gray-500 text-sm">No sales data</p>}
+        </div>
+
+        {/* Payment Methods */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-bold mb-4">Payment Methods</h2>
+          {Object.keys(paymentMethods).length > 0 ? (
+            <div className="space-y-3">
+              {Object.entries(paymentMethods).map(([method, count]) => (
+                <div key={method} className="flex items-center justify-between">
+                  <span className="text-sm font-medium capitalize">{method.replace('_', ' ')}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-32 bg-gray-200 rounded-full h-2">
+                      <div className="bg-indigo-600 h-2 rounded-full" style={{ width: `${(count / filteredOrders.length) * 100}%` }}></div>
+                    </div>
+                    <span className="text-sm text-gray-500">{count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-gray-500 text-sm">No data</p>}
+        </div>
+
+        {/* Order Status Summary */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-bold mb-4">Order Status Summary</h2>
+          <div className="space-y-3">
+            {['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map(status => {
+              const count = filteredOrders.filter(o => o.status === status).length;
+              return (
+                <div key={status} className="flex items-center justify-between">
+                  <span className="text-sm font-medium capitalize">{status}</span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${status === 'delivered' ? 'bg-green-100 text-green-700' : status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Seller Performance */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-bold mb-4">Seller Performance</h2>
+          <div className="space-y-3">
+            {sellers.filter(s => s.status === 'approved').map(seller => {
+              const earnings = store.getSellerEarnings(seller.userId);
+              const sellerOrders = orders.filter(o => o.items.some(i => i.sellerId === seller.userId)).length;
+              return (
+                <div key={seller.userId} className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{seller.storeName}</span>
+                  <div className="text-right">
+                    <p className="text-sm font-bold">${earnings.grossSales.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500">{sellerOrders} orders</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminSettings() {
   const { addToast } = useToast();
   const settings = store.getSettings();
@@ -2275,6 +2621,192 @@ function AdminSettings() {
   );
 }
 
+function CustomerReviews() {
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ productId: '', rating: 5, title: '', comment: '' });
+  if (!user) return null;
+  const orders = store.getCustomerOrders(user.id);
+  const purchasedProducts = orders.flatMap(o => o.items.map(i => ({ ...i, orderNumber: o.orderNumber })));
+  const allReviews = store.getData().reviews.filter(r => r.customerId === user.id);
+
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    const product = store.getProduct(reviewForm.productId);
+    if (!product) return;
+    store.addReview({ productId: reviewForm.productId, customerId: user.id, customerName: user.fullName.split(' ')[0] + ' ' + (user.fullName.split(' ')[1]?.[0] || '') + '.', rating: reviewForm.rating, title: reviewForm.title, comment: reviewForm.comment });
+    addToast('Review submitted!', 'success');
+    setShowForm(false);
+    setReviewForm({ productId: '', rating: 5, title: '', comment: '' });
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">My Reviews</h1>
+        <button onClick={() => setShowForm(!showForm)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"><Plus size={16} /> Write Review</button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmitReview} className="bg-white rounded-xl border p-6 mb-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
+            <select value={reviewForm.productId} onChange={e => setReviewForm({ ...reviewForm, productId: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm">
+              <option value="">Select a purchased product</option>
+              {purchasedProducts.map(p => (
+                <option key={p.productId} value={p.productId}>{p.productName} (Order: {p.orderNumber})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map(s => (
+                <button key={s} type="button" onClick={() => setReviewForm({ ...reviewForm, rating: s })}>
+                  <Star size={24} className={s <= reviewForm.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'} />
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <input type="text" value={reviewForm.title} onChange={e => setReviewForm({ ...reviewForm, title: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Comment</label>
+            <textarea value={reviewForm.comment} onChange={e => setReviewForm({ ...reviewForm, comment: e.target.value })} required rows={3} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-medium">Submit Review</button>
+        </form>
+      )}
+
+      {allReviews.length > 0 ? (
+        <div className="space-y-4">
+          {allReviews.map(r => {
+            const product = store.getProduct(r.productId);
+            return (
+              <div key={r.id} className="bg-white rounded-xl border p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  {product && <img src={product.images[0]} alt="" className="w-10 h-10 object-cover rounded" />}
+                  <div>
+                    <p className="font-medium text-sm">{product?.name}</p>
+                    <div className="flex">{[1, 2, 3, 4, 5].map(s => <Star key={s} size={12} className={s <= r.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'} />)}</div>
+                  </div>
+                </div>
+                <p className="font-medium text-sm">{r.title}</p>
+                <p className="text-sm text-gray-600">{r.comment}</p>
+                <p className="text-xs text-gray-400 mt-2">{new Date(r.createdAt).toLocaleDateString()}</p>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-gray-500">You haven't written any reviews yet.</p>
+      )}
+    </div>
+  );
+}
+
+function CustomerReturns() {
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ orderId: '', orderItemId: '', reason: '', description: '', quantity: 1 });
+  if (!user) return null;
+  const orders = store.getCustomerOrders(user.id).filter(o => o.status === 'delivered');
+  const returns = store.getData().returns.filter(r => r.customerId === user.id);
+
+  const handleSubmitReturn = (e: React.FormEvent) => {
+    e.preventDefault();
+    const order = store.getOrder(form.orderId);
+    const item = order?.items.find(i => i.id === form.orderItemId);
+    if (!item) return;
+    store.requestReturn(form.orderId, form.orderItemId, user.id, form.reason, form.description, form.quantity, item.unitPrice * form.quantity);
+    addToast('Return request submitted!', 'success');
+    setShowForm(false);
+    setForm({ orderId: '', orderItemId: '', reason: '', description: '', quantity: 1 });
+  };
+
+  const statusColors: Record<string, string> = {
+    requested: 'bg-yellow-100 text-yellow-700',
+    under_review: 'bg-blue-100 text-blue-700',
+    approved: 'bg-green-100 text-green-700',
+    rejected: 'bg-red-100 text-red-700',
+    returned: 'bg-purple-100 text-purple-700',
+    refunded: 'bg-green-100 text-green-700',
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Returns & Refunds</h1>
+        <button onClick={() => setShowForm(!showForm)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"><RotateCcw size={16} /> Request Return</button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmitReturn} className="bg-white rounded-xl border p-6 mb-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
+            <select value={form.orderId} onChange={e => setForm({ ...form, orderId: e.target.value, orderItemId: '' })} required className="w-full px-3 py-2 border rounded-lg text-sm">
+              <option value="">Select order</option>
+              {orders.map(o => <option key={o.id} value={o.id}>{o.orderNumber} - {new Date(o.createdAt).toLocaleDateString()}</option>)}
+            </select>
+          </div>
+          {form.orderId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
+              <select value={form.orderItemId} onChange={e => setForm({ ...form, orderItemId: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm">
+                <option value="">Select item</option>
+                {store.getOrder(form.orderId)?.items.map(i => <option key={i.id} value={i.id}>{i.productName} (Qty: {i.quantity})</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <select value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm">
+              <option value="">Select reason</option>
+              <option value="defective">Defective product</option>
+              <option value="wrong_item">Wrong item received</option>
+              <option value="not_as_described">Not as described</option>
+              <option value="changed_mind">Changed my mind</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required rows={3} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+            <input type="number" min={1} value={form.quantity} onChange={e => setForm({ ...form, quantity: Number(e.target.value) })} required className="w-24 px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-medium">Submit Return Request</button>
+        </form>
+      )}
+
+      {returns.length > 0 ? (
+        <div className="space-y-3">
+          {returns.map(r => (
+            <div key={r.id} className="bg-white rounded-xl border p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-sm">Return #{r.id.slice(0, 8)}</p>
+                  <p className="text-xs text-gray-500">{new Date(r.createdAt).toLocaleDateString()} • Refund: ${r.refundAmount.toFixed(2)}</p>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full ${statusColors[r.status] || 'bg-gray-100 text-gray-700'}`}>{r.status.replace('_', ' ')}</span>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">{r.reason} - {r.description}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-500">No return requests yet.</p>
+      )}
+    </div>
+  );
+}
+
 // ============ MAIN APP ============
 
 function StorefrontLayout({ children }: { children: ReactNode }) {
@@ -2327,6 +2859,8 @@ function App() {
             <Route path="/account/orders/:orderId" element={<ProtectedRoute roles={['customer']}><StorefrontLayout><CustomerLayout><CustomerOrderDetail /></CustomerLayout></StorefrontLayout></ProtectedRoute>} />
             <Route path="/account/wishlist" element={<ProtectedRoute roles={['customer']}><StorefrontLayout><CustomerLayout><CustomerWishlist /></CustomerLayout></StorefrontLayout></ProtectedRoute>} />
             <Route path="/account/addresses" element={<ProtectedRoute roles={['customer']}><StorefrontLayout><CustomerLayout><CustomerAddresses /></CustomerLayout></StorefrontLayout></ProtectedRoute>} />
+            <Route path="/account/reviews" element={<ProtectedRoute roles={['customer']}><StorefrontLayout><CustomerLayout><CustomerReviews /></CustomerLayout></StorefrontLayout></ProtectedRoute>} />
+            <Route path="/account/returns" element={<ProtectedRoute roles={['customer']}><StorefrontLayout><CustomerLayout><CustomerReturns /></CustomerLayout></StorefrontLayout></ProtectedRoute>} />
 
             {/* Seller */}
             <Route path="/seller/dashboard" element={<ProtectedRoute roles={['seller']}><SellerLayout><SellerDashboard /></SellerLayout></ProtectedRoute>} />
@@ -2343,6 +2877,7 @@ function App() {
             <Route path="/admin/orders" element={<ProtectedRoute roles={['admin', 'super_admin']}><AdminLayout><AdminOrders /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/coupons" element={<ProtectedRoute roles={['admin', 'super_admin']}><AdminLayout><AdminCoupons /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/payouts" element={<ProtectedRoute roles={['admin', 'super_admin']}><AdminLayout><AdminPayouts /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/reports" element={<ProtectedRoute roles={['admin', 'super_admin']}><AdminLayout><AdminReports /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute roles={['admin', 'super_admin']}><AdminLayout><AdminSettings /></AdminLayout></ProtectedRoute>} />
           </Routes>
         </ToastContext.Provider>
